@@ -59,24 +59,41 @@ function escapeXml(str) {
 
 // ── TWIML — message passed as query param ──
 app.get('/api/twiml', (req, res) => {
-  const message = escapeXml(req.query.msg || 'This is an emergency alert from your property management team.');
+  const msgEn = escapeXml(req.query.msg || 'This is an emergency alert from your property management team.');
+  const msgEs = escapeXml(req.query.mse || '');
+  const lang  = req.query.lang || 'en';
   res.type('text/xml');
-  res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Pause length="1"/>
-  <Say voice="Polly.Joanna" language="en-US">${message}</Say>
-  <Pause length="1"/>
-  <Say voice="Polly.Joanna" language="en-US">Repeating. ${message}</Say>
-</Response>`);
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Pause length="1"/>\n`;
+
+  if ((lang === 'en' || lang === 'both') && msgEn) {
+    xml += `  <Say voice="Polly.Joanna" language="en-US">${msgEn}</Say>\n  <Pause length="1"/>\n`;
+  }
+  if ((lang === 'es' || lang === 'both') && msgEs) {
+    xml += `  <Say voice="Polly.Lupe" language="es-US">${msgEs}</Say>\n  <Pause length="1"/>\n`;
+  }
+  if ((lang === 'en' || lang === 'both') && msgEn) {
+    xml += `  <Say voice="Polly.Joanna" language="en-US">Repeating. ${msgEn}</Say>\n`;
+  }
+  if ((lang === 'es' || lang === 'both') && msgEs) {
+    xml += `  <Say voice="Polly.Lupe" language="es-US">Repitiendo. ${msgEs}</Say>\n`;
+  }
+
+  xml += `</Response>`;
+  res.send(xml);
 });
 
 // ── SEND ALERT ──
 app.post('/api/send-alert', alertLimiter, async (req, res) => {
-  const { residents, message, type, channels, property, fromPhone, accountSid, authToken } = req.body;
+  const { residents, message, messageEn, messageEs, language, type, channels, property, fromPhone, accountSid, authToken } = req.body;
+
+  const engMsg = messageEn || message || '';
+  const espMsg = messageEs || '';
+  const lang   = language || 'en';
 
   if (!residents || !Array.isArray(residents) || residents.length === 0)
     return res.status(400).json({ error: 'No residents provided' });
-  if (!message || !message.trim())
+  if (!engMsg && !espMsg)
     return res.status(400).json({ error: 'No message provided' });
   if (!channels || (!channels.call && !channels.sms))
     return res.status(400).json({ error: 'No channels selected' });
@@ -103,12 +120,9 @@ app.post('/api/send-alert', alertLimiter, async (req, res) => {
 
     if (channels.call) {
       try {
-        // Pass message as query param — simple and reliable
-        const twimlUrl = `${baseUrl}/api/twiml?msg=${encodeURIComponent(message.slice(0, 500))}`;
+        const twimlUrl = `${baseUrl}/api/twiml?lang=${lang}&msg=${encodeURIComponent(engMsg.slice(0,500))}&mse=${encodeURIComponent(espMsg.slice(0,500))}`;
         const call = await client.calls.create({
-          to: phone,
-          from,
-          url: twimlUrl,
+          to: phone, from, url: twimlUrl,
           statusCallback: `${baseUrl}/api/status`,
           statusCallbackMethod: 'POST',
           timeout: 30,
@@ -126,17 +140,29 @@ app.post('/api/send-alert', alertLimiter, async (req, res) => {
     }
 
     if (channels.sms) {
-      try {
-        const body = `🚨 ${property ? property + ': ' : ''}${message}`.slice(0, 1600);
-        const sms = await client.messages.create({ to: phone, from, body });
-        r.smsSid = sms.sid;
-        r.smsStatus = sms.status;
-        console.log(`[SMS OK] ${resident.name} (${phone}) → ${sms.sid}`);
-      } catch (err) {
-        console.error(`[SMS FAIL] ${resident.name} (${phone}): ${err.message}`);
-        r.smsError = err.message;
-        r.smsStatus = 'failed';
-        anyFailed = true;
+      // English SMS
+      if (lang === 'en' || lang === 'both') {
+        try {
+          const body = `🚨 ${property ? property + ': ' : ''}${engMsg}`.slice(0, 1600);
+          const sms = await client.messages.create({ to: phone, from, body });
+          r.smsSid = sms.sid; r.smsStatus = sms.status;
+          console.log(`[SMS EN OK] ${resident.name} (${phone}) → ${sms.sid}`);
+        } catch (err) {
+          console.error(`[SMS EN FAIL] ${resident.name}: ${err.message}`);
+          r.smsStatus = 'failed'; anyFailed = true;
+        }
+      }
+      // Spanish SMS
+      if ((lang === 'es' || lang === 'both') && espMsg) {
+        try {
+          const body = `🚨 ${property ? property + ': ' : ''}${espMsg}`.slice(0, 1600);
+          const sms = await client.messages.create({ to: phone, from, body });
+          r.smsSidEs = sms.sid; r.smsStatusEs = sms.status;
+          console.log(`[SMS ES OK] ${resident.name} (${phone}) → ${sms.sid}`);
+        } catch (err) {
+          console.error(`[SMS ES FAIL] ${resident.name}: ${err.message}`);
+          r.smsStatusEs = 'failed'; anyFailed = true;
+        }
       }
     }
 
