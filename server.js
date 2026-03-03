@@ -8,6 +8,18 @@ const express = require('express');
 const cors = require('cors');
 const twilio = require('twilio');
 const rateLimit = require('express-rate-limit');
+const { MongoClient } = require('mongodb');
+
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://frizzo1_db_user:Deepbluesea1@cluster0.z0krsz8.mongodb.net/?appName=Cluster0';
+const mongoClient = new MongoClient(MONGO_URI);
+let db;
+
+mongoClient.connect()
+  .then(() => {
+    db = mongoClient.db('residial');
+    console.log('[MONGO] Connected to MongoDB');
+  })
+  .catch(err => console.error('[MONGO] Connection failed:', err.message));
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -195,6 +207,41 @@ app.post('/api/status', (req, res) => {
 });
 
 app.get('/api/history', (req, res) => res.json(alertLog.slice(0, 50)));
+
+// ── SAVE SIGNUP ──
+app.post('/api/signup', async (req, res) => {
+  const { fname, lname, company, phone, doors, state } = req.body;
+  if (!fname || !phone) return res.status(400).json({ error: 'Missing required fields' });
+  try {
+    if (!db) return res.status(503).json({ error: 'Database not connected' });
+    const signup = {
+      fname, lname, company, phone, doors, state,
+      createdAt: new Date(),
+      trialStarted: new Date(),
+      trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      status: 'trial'
+    };
+    await db.collection('signups').insertOne(signup);
+    console.log(`[SIGNUP] ${fname} ${lname} — ${company} (${phone})`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[SIGNUP ERROR]', err.message);
+    res.status(500).json({ error: 'Failed to save signup' });
+  }
+});
+
+// ── GET ALL SIGNUPS (admin) ──
+app.get('/api/signups', async (req, res) => {
+  const key = req.headers['x-admin-key'];
+  if (key !== 'residial-admin-2026') return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (!db) return res.status(503).json({ error: 'Database not connected' });
+    const signups = await db.collection('signups').find({}).sort({ createdAt: -1 }).toArray();
+    res.json(signups);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch signups' });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Residial API running on port ${PORT}`);
