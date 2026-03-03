@@ -301,6 +301,65 @@ app.get('/api/signups', async (req, res) => {
   }
 });
 
+
+// ── CHECK EXPIRING TRIALS ──
+app.get('/api/check-trials', async (req, res) => {
+  const key = req.headers['x-admin-key'];
+  if (key !== 'residial-admin-2026') return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (!db) return res.status(503).json({ error: 'Database not connected' });
+
+    const now = new Date();
+    const in2days = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+    // Find trials expiring in the next 2 days that haven't been notified yet
+    const expiring = await db.collection('signups').find({
+      status: 'trial',
+      trialEnds: { $gte: now, $lte: in2days },
+      expiryEmailSent: { $ne: true }
+    }).toArray();
+
+    let sent = 0;
+    for (const signup of expiring) {
+      if (!signup.email) continue;
+      try {
+        await sgMail.send({
+          to: signup.email,
+          from: 'noreply@residial.net',
+          subject: 'Your Residial trial ends in 2 days',
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f5f0e8">
+              <h1 style="font-family:Georgia,serif;color:#08111f;font-size:28px;margin-bottom:4px">Your trial ends in <span style="color:#e83030">2 days</span></h1>
+              <p style="color:#6b7a8d;margin-bottom:24px">Don't lose access to Residial.</p>
+              <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px">
+                <p style="color:#08111f;font-size:16px;margin-bottom:16px">Hi ${signup.fname},</p>
+                <p style="color:#2a3a4a;margin-bottom:16px">Your 14-day free trial expires on <strong>${new Date(signup.trialEnds).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'})}</strong>.</p>
+                <p style="color:#2a3a4a;margin-bottom:24px">To keep sending emergency alerts to your residents, upgrade to a paid plan — starting at just $1.75/door/month. Most managers pass this cost to residents, making it net $0.</p>
+                <a href="https://residial.net/#pricing" style="display:inline-block;background:#1a5fff;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:600;margin-bottom:16px">View Pricing & Upgrade →</a>
+                <p style="color:#6b7a8d;font-size:13px;margin:0">Questions? Just reply to this email.</p>
+              </div>
+              <p style="color:#6b7a8d;font-size:12px;text-align:center">Residial — Emergency Alert Platform for Property Managers</p>
+            </div>
+          `
+        });
+        // Mark as notified
+        await db.collection('signups').updateOne(
+          { _id: signup._id },
+          { $set: { expiryEmailSent: true, expiryEmailSentAt: new Date() } }
+        );
+        sent++;
+        console.log(`[TRIAL EXPIRY EMAIL] Sent to ${signup.email}`);
+      } catch(err) {
+        console.error(`[TRIAL EXPIRY ERROR] ${signup.email}: ${err.message}`);
+      }
+    }
+
+    res.json({ checked: expiring.length, sent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Residial API running on port ${PORT}`);
 });
