@@ -9,6 +9,8 @@ const cors = require('cors');
 const twilio = require('twilio');
 const rateLimit = require('express-rate-limit');
 const { MongoClient } = require('mongodb');
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY || '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');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://frizzo1_db_user:Deepbluesea1@cluster0.z0krsz8.mongodb.net/?appName=Cluster0';
 const mongoClient = new MongoClient(MONGO_URI);
@@ -223,6 +225,33 @@ app.post('/api/signup', async (req, res) => {
     };
     await db.collection('signups').insertOne(signup);
     console.log(`[SIGNUP] ${fname} ${lname} — ${company} (${phone})`);
+
+    // Send confirmation email to owner
+    try {
+      await sgMail.send({
+        to: 'frizzo1@gmail.com',
+        from: 'noreply@residial.net',
+        subject: `New Trial Signup: ${fname} ${lname} — ${company}`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f5f0e8">
+            <h2 style="color:#08111f;font-size:24px;margin-bottom:4px">New Trial Signup 🎉</h2>
+            <p style="color:#6b7a8d;margin-bottom:24px">Someone just signed up for a Residial free trial.</p>
+            <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden">
+              <tr><td style="padding:12px 16px;border-bottom:1px solid #eee;font-weight:600;width:140px">Name</td><td style="padding:12px 16px;border-bottom:1px solid #eee">${fname} ${lname}</td></tr>
+              <tr><td style="padding:12px 16px;border-bottom:1px solid #eee;font-weight:600">Company</td><td style="padding:12px 16px;border-bottom:1px solid #eee">${company}</td></tr>
+              <tr><td style="padding:12px 16px;border-bottom:1px solid #eee;font-weight:600">Phone</td><td style="padding:12px 16px;border-bottom:1px solid #eee">${phone}</td></tr>
+              <tr><td style="padding:12px 16px;border-bottom:1px solid #eee;font-weight:600">Doors</td><td style="padding:12px 16px;border-bottom:1px solid #eee">${doors}</td></tr>
+              <tr><td style="padding:12px 16px;font-weight:600">State</td><td style="padding:12px 16px">${state}</td></tr>
+            </table>
+            <p style="margin-top:24px;color:#6b7a8d;font-size:13px">Trial ends in 14 days. View all signups at <a href="https://musical-peony-b84b2f.netlify.app/admin.html">admin dashboard</a>.</p>
+          </div>
+        `
+      });
+      console.log(`[EMAIL] Signup notification sent for ${fname} ${lname}`);
+    } catch(emailErr) {
+      console.error('[EMAIL ERROR]', emailErr.message);
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('[SIGNUP ERROR]', err.message);
