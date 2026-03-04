@@ -10,6 +10,7 @@ const twilio = require('twilio');
 const rateLimit = require('express-rate-limit');
 const { MongoClient } = require('mongodb');
 const sgMail = require('@sendgrid/mail');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 sgMail.setApiKey(process.env.SENDGRID_API_KEY || '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');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://frizzo1_db_user:Deepbluesea1@cluster0.z0krsz8.mongodb.net/?appName=Cluster0';
@@ -358,6 +359,109 @@ app.get('/api/check-trials', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── CREATE STRIPE CHECKOUT SESSION ──
+app.post('/api/create-checkout', async (req, res) => {
+  const { email, fname, lname, company, doors } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+
+  // Determine plan based on doors
+  let priceId;
+  const doorCount = parseInt(doors) || 0;
+  if (doorCount <= 50) {
+    priceId = process.env.STRIPE_STARTER_PRICE_ID;
+  } else if (doorCount <= 500) {
+    priceId = process.env.STRIPE_PRO_PRICE_ID;
+  } else {
+    priceId = process.env.STRIPE_ENTERPRISE_PRICE_ID;
+  }
+
+  if (!priceId) return res.status(500).json({ error: 'Price ID not configured' });
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      customer_email: email,
+      line_items: [{ price: priceId, quantity: 1 }],
+      metadata: { fname, lname, company, doors },
+      success_url: 'https://residial.net/pm-dashboard.html?subscribed=true',
+      cancel_url: 'https://residial.net/#pricing',
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('[STRIPE ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── UPDATE DOOR COUNT ──
+app.post('/api/update-doors', async (req, res) => {
+  const { email, doors } = req.body;
+  if (!email || !doors) return res.status(400).json({ error: 'Email and doors required' });
+
+  try {
+    // Find customer in Stripe
+    const customers = await stripe.customers.list({ email, limit: 1 });
+    if (!customers.data.length) return res.status(404).json({ error: 'Customer not found' });
+
+    const customer = customers.data[0];
+    const subscriptions = await stripe.subscriptions.list({ customer: customer.id, limit: 1 });
+    if (!subscriptions.data.length) return res.status(404).json({ error: 'No active subscription' });
+
+    // Determine new plan
+    const doorCount = parseInt(doors);
+    let priceId;
+    if (doorCount <= 50) priceId = process.env.STRIPE_STARTER_PRICE_ID;
+    else if (doorCount <= 500) priceId = process.env.STRIPE_PRO_PRICE_ID;
+    else priceId = process.env.STRIPE_ENTERPRISE_PRICE_ID;
+
+    // Update subscription
+    const sub = subscriptions.data[0];
+    await stripe.subscriptions.update(sub.id, {
+      items: [{ id: sub.items.data[0].id, price: priceId }],
+      proration_behavior: 'create_prorations',
+    });
+
+    // Update MongoDB
+    if (db) {
+      await db.collection('signups').updateOne(
+        { email },
+        { $set: { doors, updatedAt: new Date() } }
+      );
+    }
+
+    console.log(`[DOORS UPDATED] ${email} → ${doors} doors`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[UPDATE DOORS ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── STRIPE WEBHOOK ──
+app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || '');
+  } catch (err) {
+    return res.status(400).send('Webhook Error: ' + err.message);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    console.log(`[STRIPE] New subscription: ${session.customer_email}`);
+    if (db) {
+      await db.collection('signups').updateOne(
+        { email: session.customer_email },
+        { $set: { status: 'active', stripeCustomerId: session.customer, subscribedAt: new Date() } }
+      );
+    }
+  }
+
+  res.json({ received: true });
 });
 
 app.listen(PORT, () => {
