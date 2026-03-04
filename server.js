@@ -263,7 +263,12 @@ app.post('/api/signup', async (req, res) => {
                 <p style="color:#08111f;font-size:16px;margin-bottom:16px">Hi ${fname},</p>
                 <p style="color:#2a3a4a;margin-bottom:16px">You're all set! Your Residial account is ready. You can now send emergency alerts to all your residents simultaneously via voice call and SMS — in under 10 seconds.</p>
                 <a href="https://residial.net/pm-dashboard.html" style="display:inline-block;background:#1a5fff;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:600;margin-bottom:16px">Open Your Dashboard →</a>
-                <p style="color:#6b7a8d;font-size:13px;margin:0">Your trial ends in 14 days. No credit card required until then.</p>
+                <p style="color:#6b7a8d;font-size:13px;margin-bottom:16px">Your trial ends in 14 days. No credit card required until then.</p>
+                <div style="background:#f0f6ff;border-radius:10px;padding:14px;border-left:4px solid #1a5fff">
+                  <p style="font-weight:700;color:#08111f;margin-bottom:8px;font-size:14px">📱 Add the app to your phone</p>
+                  <p style="color:#2a3a4a;font-size:13px;margin-bottom:6px"><strong>iPhone:</strong> Open dashboard in Safari → tap Share ⬆️ → "Add to Home Screen" → "Add"</p>
+                  <p style="color:#2a3a4a;font-size:13px;margin-bottom:0"><strong>Android:</strong> Open in Chrome → tap menu (⋮) → "Add to Home Screen"</p>
+                </div>
               </div>
               <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px">
                 <p style="font-weight:600;color:#08111f;margin-bottom:12px">Getting started checklist:</p>
@@ -271,12 +276,6 @@ app.post('/api/signup', async (req, res) => {
                 <p style="color:#2a3a4a;margin-bottom:8px">⬜ Upload your resident list (CSV or Excel)</p>
                 <p style="color:#2a3a4a;margin-bottom:8px">⬜ Send your first test alert</p>
                 <p style="color:#2a3a4a;margin-bottom:0">⬜ Add Residial fee to resident leases</p>
-              </div>
-              <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px;border-left:4px solid #1a5fff">
-                <p style="font-weight:600;color:#08111f;margin-bottom:8px">📱 Add Residial to your phone</p>
-                <p style="color:#2a3a4a;font-size:14px;margin-bottom:12px">Get instant access from your home screen — no app store needed.</p>
-                <p style="color:#2a3a4a;font-size:14px;margin-bottom:6px"><strong>iPhone:</strong> Open residial.net/pm-dashboard.html in Safari → tap the Share button at the bottom → tap "Add to Home Screen" → tap "Add"</p>
-                <p style="color:#2a3a4a;font-size:14px;margin-bottom:0"><strong>Android:</strong> Open the link in Chrome → tap the menu → tap "Add to Home Screen"</p>
               </div>
               <p style="color:#6b7a8d;font-size:12px;text-align:center">Questions? Reply to this email or visit residial.net</p>
             </div>
@@ -393,7 +392,12 @@ app.post('/api/resend-welcome', async (req, res) => {
             <p style="color:#08111f;font-size:16px;margin-bottom:16px">Hi ${fname},</p>
             <p style="color:#2a3a4a;margin-bottom:16px">You're all set! Your Residial account is ready. You can now send emergency alerts to all your residents simultaneously via voice call and SMS — in under 10 seconds.</p>
             <a href="https://residial.net/pm-dashboard.html" style="display:inline-block;background:#1a5fff;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:600;margin-bottom:16px">Open Your Dashboard →</a>
-            <p style="color:#6b7a8d;font-size:13px;margin:0">Your trial ends in 14 days. No credit card required until then.</p>
+            <p style="color:#6b7a8d;font-size:13px;margin-bottom:16px">Your trial ends in 14 days. No credit card required until then.</p>
+            <div style="background:#f0f6ff;border-radius:10px;padding:14px;border-left:4px solid #1a5fff">
+              <p style="font-weight:700;color:#08111f;margin-bottom:8px;font-size:14px">📱 Add the app to your phone</p>
+              <p style="color:#2a3a4a;font-size:13px;margin-bottom:6px"><strong>iPhone:</strong> Open dashboard in Safari → tap Share ⬆️ → "Add to Home Screen" → "Add"</p>
+              <p style="color:#2a3a4a;font-size:13px;margin-bottom:0"><strong>Android:</strong> Open in Chrome → tap menu (⋮) → "Add to Home Screen"</p>
+            </div>
           </div>
           <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px">
             <p style="font-weight:600;color:#08111f;margin-bottom:12px">Getting started checklist:</p>
@@ -401,12 +405,6 @@ app.post('/api/resend-welcome', async (req, res) => {
             <p style="color:#2a3a4a;margin-bottom:8px">⬜ Upload your resident list (CSV or Excel)</p>
             <p style="color:#2a3a4a;margin-bottom:8px">⬜ Send your first test alert</p>
             <p style="color:#2a3a4a;margin-bottom:0">⬜ Add Residial fee to resident leases</p>
-          </div>
-          <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px;border-left:4px solid #1a5fff">
-            <p style="font-weight:600;color:#08111f;margin-bottom:8px">📱 Add Residial to your phone</p>
-            <p style="color:#2a3a4a;font-size:14px;margin-bottom:12px">Get instant access from your home screen — no app store needed.</p>
-            <p style="color:#2a3a4a;font-size:14px;margin-bottom:6px"><strong>iPhone:</strong> Open residial.net/pm-dashboard.html in Safari → tap the Share button at the bottom → tap "Add to Home Screen" → tap "Add"</p>
-            <p style="color:#2a3a4a;font-size:14px;margin-bottom:0"><strong>Android:</strong> Open the link in Chrome → tap the menu → tap "Add to Home Screen"</p>
           </div>
           <p style="color:#6b7a8d;font-size:12px;text-align:center">Questions? Reply to this email or visit residial.net</p>
         </div>
