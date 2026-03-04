@@ -367,6 +367,58 @@ app.get('/api/check-trials', async (req, res) => {
   }
 });
 
+// ── RESEND WELCOME EMAIL ──
+app.post('/api/resend-welcome', async (req, res) => {
+  const key = req.headers['x-admin-key'];
+  if (key !== 'residial-admin-2026') return res.status(401).json({ error: 'Unauthorized' });
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+
+  try {
+    let fname = 'there', company = 'your company';
+    if (db) {
+      const signup = await db.collection('signups').findOne({ email });
+      if (signup) { fname = signup.fname || 'there'; company = signup.company || 'your company'; }
+    }
+
+    await sgMail.send({
+      to: email,
+      from: 'noreply@residial.net',
+      subject: 'Welcome to Residial — Your 14-Day Free Trial Has Started',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f5f0e8">
+          <h1 style="font-family:Georgia,serif;color:#08111f;font-size:32px;margin-bottom:4px">Welcome to Resid<span style="color:#1a5fff">ial</span></h1>
+          <p style="color:#6b7a8d;margin-bottom:24px">Your 14-day free trial has started.</p>
+          <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px">
+            <p style="color:#08111f;font-size:16px;margin-bottom:16px">Hi ${fname},</p>
+            <p style="color:#2a3a4a;margin-bottom:16px">You're all set! Your Residial account is ready. You can now send emergency alerts to all your residents simultaneously via voice call and SMS — in under 10 seconds.</p>
+            <a href="https://residial.net/pm-dashboard.html" style="display:inline-block;background:#1a5fff;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:600;margin-bottom:16px">Open Your Dashboard →</a>
+            <p style="color:#6b7a8d;font-size:13px;margin:0">Your trial ends in 14 days. No credit card required until then.</p>
+          </div>
+          <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px">
+            <p style="font-weight:600;color:#08111f;margin-bottom:12px">Getting started checklist:</p>
+            <p style="color:#2a3a4a;margin-bottom:8px">✅ Account created</p>
+            <p style="color:#2a3a4a;margin-bottom:8px">⬜ Upload your resident list (CSV or Excel)</p>
+            <p style="color:#2a3a4a;margin-bottom:8px">⬜ Send your first test alert</p>
+            <p style="color:#2a3a4a;margin-bottom:0">⬜ Add Residial fee to resident leases</p>
+          </div>
+          <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px;border-left:4px solid #1a5fff">
+            <p style="font-weight:600;color:#08111f;margin-bottom:8px">📱 Add Residial to your phone</p>
+            <p style="color:#2a3a4a;font-size:14px;margin-bottom:12px">Get instant access from your home screen — no app store needed.</p>
+            <p style="color:#2a3a4a;font-size:14px;margin-bottom:6px"><strong>iPhone:</strong> Open residial.net/pm-dashboard.html in Safari → tap the Share button at the bottom → tap "Add to Home Screen" → tap "Add"</p>
+            <p style="color:#2a3a4a;font-size:14px;margin-bottom:0"><strong>Android:</strong> Open the link in Chrome → tap the menu → tap "Add to Home Screen"</p>
+          </div>
+          <p style="color:#6b7a8d;font-size:12px;text-align:center">Questions? Reply to this email or visit residial.net</p>
+        </div>
+      `
+    });
+    res.json({ success: true, message: `Welcome email sent to ${email}` });
+  } catch (err) {
+    console.error('[RESEND ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── CREATE STRIPE CHECKOUT SESSION ──
 app.post('/api/create-checkout', async (req, res) => {
   const { email, fname, lname, company, doors } = req.body;
