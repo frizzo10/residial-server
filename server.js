@@ -417,6 +417,57 @@ app.post('/api/resend-welcome', async (req, res) => {
   }
 });
 
+// ── SAVE RESIDENTS ──
+app.post('/api/residents/save', async (req, res) => {
+  const { email, property, residents } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  if (!residents || !Array.isArray(residents)) return res.status(400).json({ error: 'Residents array required' });
+  try {
+    if (!db) return res.status(503).json({ error: 'Database not connected' });
+    const key = property || 'default';
+    await db.collection('residents').updateOne(
+      { email, property: key },
+      { $set: { email, property: key, residents, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    console.log(`[RESIDENTS] Saved ${residents.length} residents for ${email} (${key})`);
+    res.json({ success: true, count: residents.length });
+  } catch (err) {
+    console.error('[RESIDENTS SAVE ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── LOAD RESIDENTS ──
+app.get('/api/residents/load', async (req, res) => {
+  const { email, property } = req.query;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  try {
+    if (!db) return res.status(503).json({ error: 'Database not connected' });
+    const key = property || 'default';
+    const doc = await db.collection('residents').findOne({ email, property: key });
+    if (!doc) return res.json({ residents: [], count: 0 });
+    res.json({ residents: doc.residents || [], count: (doc.residents || []).length });
+  } catch (err) {
+    console.error('[RESIDENTS LOAD ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── LIST RESIDENT PROPERTIES ──
+app.get('/api/residents/properties', async (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  try {
+    if (!db) return res.status(503).json({ error: 'Database not connected' });
+    const docs = await db.collection('residents').find({ email }, { projection: { property: 1, updatedAt: 1, residents: 1 } }).toArray();
+    const properties = docs.map(d => ({ property: d.property, count: (d.residents || []).length, updatedAt: d.updatedAt }));
+    res.json({ properties });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── CREATE STRIPE CHECKOUT SESSION ──
 app.post('/api/create-checkout', async (req, res) => {
   const { email, fname, lname, company, doors } = req.body;
