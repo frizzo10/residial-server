@@ -272,6 +272,12 @@ app.post('/api/signup', async (req, res) => {
                 <p style="color:#2a3a4a;margin-bottom:8px">⬜ Send your first test alert</p>
                 <p style="color:#2a3a4a;margin-bottom:0">⬜ Add Residial fee to resident leases</p>
               </div>
+              <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px;border-left:4px solid #1a5fff">
+                <p style="font-weight:600;color:#08111f;margin-bottom:8px">📱 Add Residial to your phone</p>
+                <p style="color:#2a3a4a;font-size:14px;margin-bottom:12px">Get instant access from your home screen — no app store needed.</p>
+                <p style="color:#2a3a4a;font-size:14px;margin-bottom:6px"><strong>iPhone:</strong> Open residial.net/pm-dashboard.html in Safari → tap the Share button at the bottom → tap "Add to Home Screen" → tap "Add"</p>
+                <p style="color:#2a3a4a;font-size:14px;margin-bottom:0"><strong>Android:</strong> Open the link in Chrome → tap the menu → tap "Add to Home Screen"</p>
+              </div>
               <p style="color:#6b7a8d;font-size:12px;text-align:center">Questions? Reply to this email or visit residial.net</p>
             </div>
           `
