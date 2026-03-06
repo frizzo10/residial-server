@@ -417,6 +417,107 @@ app.post('/api/resend-welcome', async (req, res) => {
   }
 });
 
+// ── MAGIC LINK LOGIN ──
+const crypto = require('crypto');
+
+app.post('/api/auth/request', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  try {
+    if (!db) return res.status(503).json({ error: 'Database not connected' });
+
+    // Check if email exists in signups
+    const signup = await db.collection('signups').findOne({ email: email.toLowerCase().trim() });
+    if (!signup) return res.status(404).json({ error: 'No account found with that email. Please sign up at residial.net first.' });
+
+    // Generate token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Save token to DB
+    await db.collection('auth_tokens').updateOne(
+      { email: email.toLowerCase().trim() },
+      { $set: { email: email.toLowerCase().trim(), token, expires, createdAt: new Date() } },
+      { upsert: true }
+    );
+
+    // Send magic link email
+    const loginUrl = `https://residial.net/pm-dashboard.html?token=${token}&email=${encodeURIComponent(email.toLowerCase().trim())}`;
+    await sgMail.send({
+      to: email,
+      from: 'noreply@residial.net',
+      subject: 'Your Residial Login Link',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:32px;background:#f5f0e8">
+          <h1 style="font-family:Georgia,serif;color:#08111f;font-size:28px;margin-bottom:4px">Resid<span style="color:#1a5fff">ial</span></h1>
+          <p style="color:#6b7a8d;margin-bottom:24px">Your login link is ready.</p>
+          <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:24px">
+            <p style="color:#08111f;font-size:16px;margin-bottom:16px">Hi ${signup.fname},</p>
+            <p style="color:#2a3a4a;margin-bottom:20px">Click the button below to log in to your Residial dashboard. This link expires in 15 minutes.</p>
+            <a href="${loginUrl}" style="display:inline-block;background:#1a5fff;color:#fff;padding:14px 28px;border-radius:100px;text-decoration:none;font-weight:700;font-size:16px">Log In to Residial →</a>
+          </div>
+          <p style="color:#6b7a8d;font-size:12px;text-align:center">If you didn't request this, you can safely ignore this email.</p>
+        </div>
+      `
+    });
+
+    console.log(`[AUTH] Magic link sent to ${email}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[AUTH ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── VERIFY MAGIC LINK TOKEN ──
+app.post('/api/auth/verify', async (req, res) => {
+  const { email, token } = req.body;
+  if (!email || !token) return res.status(400).json({ error: 'Email and token required' });
+  try {
+    if (!db) return res.status(503).json({ error: 'Database not connected' });
+
+    const record = await db.collection('auth_tokens').findOne({ email: email.toLowerCase().trim(), token });
+    if (!record) return res.status(401).json({ error: 'Invalid login link' });
+    if (new Date() > new Date(record.expires)) return res.status(401).json({ error: 'Login link expired. Please request a new one.' });
+
+    // Get signup info
+    const signup = await db.collection('signups').findOne({ email: email.toLowerCase().trim() });
+
+    // Delete used token
+    await db.collection('auth_tokens').deleteOne({ email: email.toLowerCase().trim(), token });
+
+    console.log(`[AUTH] Verified login for ${email}`);
+    res.json({
+      success: true,
+      user: {
+        email: signup.email,
+        fname: signup.fname,
+        lname: signup.lname,
+        company: signup.company,
+        doors: signup.doors,
+        status: signup.status
+      }
+    });
+  } catch (err) {
+    console.error('[AUTH VERIFY ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── RESIDENT OPT-IN ──
+app.post('/api/opt-in', async (req, res) => {
+  const { name, phone, property, unit, consentDate } = req.body;
+  try {
+    if (db) {
+      await db.collection('opt_ins').insertOne({ name, phone, property, unit, consentDate, createdAt: new Date() });
+    }
+    console.log(`[OPT-IN] ${name} (${phone}) — ${property} Unit ${unit}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── SAVE RESIDENTS ──
 app.post('/api/residents/save', async (req, res) => {
   const { email, property, residents } = req.body;
