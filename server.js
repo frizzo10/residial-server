@@ -129,13 +129,17 @@ app.post('/api/send-alert', alertLimiter, async (req, res) => {
       return;
     }
 
+    // Use per-resident personalized messages if available, fall back to global
+    const resEngMsg = resident.personalizedMsgEn || engMsg;
+    const resEspMsg = resident.personalizedMsgEs || espMsg;
+
     console.log(`[DIALING] ${resident.name} → ${phone}`);
     const r = { resident: resident.name, unit: resident.unit, phone };
     let anyFailed = false;
 
     if (channels.call) {
       try {
-        const twimlUrl = `${baseUrl}/api/twiml?lang=${lang}&msg=${encodeURIComponent(engMsg.slice(0,500))}&mse=${encodeURIComponent(espMsg.slice(0,500))}`;
+        const twimlUrl = `${baseUrl}/api/twiml?lang=${lang}&msg=${encodeURIComponent(resEngMsg.slice(0,500))}&mse=${encodeURIComponent(resEspMsg.slice(0,500))}`;
         const call = await client.calls.create({
           to: phone, from, url: twimlUrl,
           statusCallback: `${baseUrl}/api/status`,
@@ -158,7 +162,7 @@ app.post('/api/send-alert', alertLimiter, async (req, res) => {
       // English SMS
       if (lang === 'en' || lang === 'both') {
         try {
-          const body = `🚨 ${property ? property + ': ' : ''}${engMsg}`.slice(0, 1600);
+          const body = `🚨 ${resEngMsg}`.slice(0, 1600);
           const sms = await client.messages.create({ to: phone, from, body });
           r.smsSid = sms.sid; r.smsStatus = sms.status;
           console.log(`[SMS EN OK] ${resident.name} (${phone}) → ${sms.sid}`);
@@ -168,9 +172,9 @@ app.post('/api/send-alert', alertLimiter, async (req, res) => {
         }
       }
       // Spanish SMS
-      if ((lang === 'es' || lang === 'both') && espMsg) {
+      if ((lang === 'es' || lang === 'both') && resEspMsg) {
         try {
-          const body = `🚨 ${property ? property + ': ' : ''}${espMsg}`.slice(0, 1600);
+          const body = `🚨 ${resEspMsg}`.slice(0, 1600);
           const sms = await client.messages.create({ to: phone, from, body });
           r.smsSidEs = sms.sid; r.smsStatusEs = sms.status;
           console.log(`[SMS ES OK] ${resident.name} (${phone}) → ${sms.sid}`);
